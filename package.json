@@ -1,0 +1,20 @@
+{
+  "name": "orchestrator-cfdi",
+  "version": "1.0.0",
+  "description": "Entry point to recive, stamp, sing and generate pdf about invoice ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": "Rafael Herrera",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.24.0",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.2.1",
+    "form-data": "^4.0.0",
+    "js-base64": "^3.7.2",
+    "multer": "^1.4.4"
+  }
+}
