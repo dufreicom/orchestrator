@@ -1,2 +1,4 @@
 node_modules
 package-lock.json
+invoice_binary.pdf
+.env
