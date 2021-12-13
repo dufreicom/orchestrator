@@ -133,8 +133,8 @@ app.post('/', (req, res) => {
 
 });
 
-app.listen(3000, () => {
-    console.log(`Server running in por 3000`);
+app.listen(80, () => {
+    console.log(`Server running in por 80`);
 })
 
 //Response of server if is calling by browser
