@@ -10,6 +10,8 @@ USER node
 
 COPY --chown=node:node . .
 
+USER root
+
 RUN npm install
 
 

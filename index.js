@@ -70,7 +70,7 @@ app.post('/', (req, res) => {
                 },
                 data: data
             }
-            
+
             //Call to sign function
             axios(configRequest)
                 .then(response => {
@@ -96,8 +96,14 @@ app.post('/', (req, res) => {
                             let pdfb64 = resp2.data.fileContent;
                             let bin = Base64.atob(pdfb64);
                             fs.writeFile('invoice_binary.pdf', bin, 'binary', error => {
-                                if (error)
-                                    console.log(error);
+                                if (error){
+                                    const errorR = {
+                                        error: 'Error to generate PDF Binary: ',
+                                        message_of_call: error
+                                    }
+                                    console.log(JSON.stringify(errorR));
+                                    res.status(400).send(errorR);
+                                }
                                 else {
                                     let invoicePdf = fs.createReadStream('invoice_binary.pdf');
                                     let statInvoicePdf = fs.statSync('invoice_binary.pdf');
@@ -110,16 +116,22 @@ app.post('/', (req, res) => {
                         })
                         .catch(function (error) {
                             //Call to convert funcion fails
-                            const errorR = `Error call to convert funcion: ${error}`
-                            console.log(errorR);
+                            const errorR = {
+                                error: 'Error call to convert funcion: ',
+                                message_of_call: error?.response?.data
+                            }
+                            console.log(JSON.stringify(errorR));
                             res.status(400).send(errorR);
                         });
                 })
                 .catch(error => {
                     //Call to sign function fails.
-                    const errorR = `Error call to sign funcion: ${error}`
-                    console.log(errorR);
-                    res.status(400).send(String(errorR));
+                    const errorR = {
+                        error: 'Error call to sign funcion: ',
+                        message_of_call: error?.response?.data
+                    }
+                    console.log(JSON.stringify(errorR));
+                    res.status(400).send(errorR);
                 })
 
         } catch (error) {
