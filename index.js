@@ -5,7 +5,7 @@ const fileUpload = require('express-fileupload');
 const FormData = require('form-data');
 const { Base64 } = require('js-base64');
 const fs = require('fs');
-let data = new FormData();
+
 //Create express server & middleware for upload files
 const app = express();
 app.use(fileUpload());
@@ -55,6 +55,7 @@ app.post('/', (req, res) => {
                 throw new Error('passphrase required');
             };
             //Generate and append files in new Form
+            let data = new FormData();
             data.append('json', json.data);
             data.append('certificate', certificate.data);
             data.append('privatekey', privatekey.data);
@@ -66,6 +67,7 @@ app.post('/', (req, res) => {
                 url: `${urlSign}`,
                 headers: {
                     'Authorization': token,
+                    'timeout': 1000,
                     ...data.getHeaders()
                 },
                 data: data
