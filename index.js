@@ -3,8 +3,10 @@ const axios = require('axios');
 const express = require('express');
 const fileUpload = require('express-fileupload');
 const FormData = require('form-data');
-const { Base64 } = require('js-base64');
 const fs = require('fs');
+const path = require('path');
+const { uploadFileToBucket , saveInvoiceXmlFile, saveInvoicePdfFile } = require('./helpers/helpers')
+
 
 //Create express server & middleware for upload files
 const app = express();
@@ -75,11 +77,17 @@ app.post('/', (req, res) => {
 
             //Call to sign function
             axios(configRequest)
-                .then(response => {
+                .then(async response => {
                     //call to sigmn functions success
                     let resp = response.data;
                     let xmlGenerated = resp.xml;
+                    const invoiceName = resp.uuid;
 
+                    // write xml file
+                    const xmlFile = await saveInvoiceXmlFile(invoiceName, xmlGenerated);
+                    console.log('Name xml generated', xmlFile)
+
+                    await uploadFileToBucket(invoiceName, xmlFile, 'xml');
                     let dataToConvertPDF = JSON.stringify({ "external": xmlGenerated });
 
                     let configConverter = {
@@ -93,34 +101,26 @@ app.post('/', (req, res) => {
 
                     //Call to convert function
                     axios(configConverter)
-                        .then((resp2) => {
+                        .then(async resp2 => {
                             //Call to convert function success
-                            let pdfb64 = resp2.data.fileContent;
-                            let bin = Base64.atob(pdfb64);
-                            fs.writeFile('invoice_binary.pdf', bin, 'binary', error => {
-                                if (error){
-                                    const errorR = {
-                                        error: 'Error to generate PDF Binary: ',
-                                        message_of_call: error
-                                    }
-                                    console.log(JSON.stringify(errorR));
-                                    res.status(400).send(errorR);
-                                }
-                                else {
-                                    let invoicePdf = fs.createReadStream('invoice_binary.pdf');
-                                    let statInvoicePdf = fs.statSync('invoice_binary.pdf');
-                                    res.setHeader('Content-Length', statInvoicePdf.size);
-                                    res.setHeader('Content-Type', 'application/pdf');
-                                    res.setHeader('Content-Disposition', 'attachment; filename=invoice_binary.pdf');
-                                    invoicePdf.pipe(res);
-                                }
-                            })
+                            const pdfb64 = resp2.data.fileContent;
+                            const pdfFile = await saveInvoicePdfFile(invoiceName, pdfb64)
+                            await uploadFileToBucket(invoiceName, pdfFile, 'pdf');
+                            console.log('Name pdf generated', pdfFile)
+
+                            let invoicePdf = fs.createReadStream(path.join(pdfFile));
+                            let statInvoicePdf = fs.statSync(path.join(pdfFile));
+                            res.setHeader('Content-Length', statInvoicePdf.size);
+                            res.setHeader('Content-Type', 'application/pdf');
+                            res.setHeader('Content-Disposition', `attachment; filename=${invoiceName}.pdf`);
+                            invoicePdf.pipe(res);
+
                         })
                         .catch(function (error) {
                             //Call to convert funcion fails
                             const errorR = {
                                 error: 'Error call to convert funcion: ',
-                                message_of_call: error?.response?.data
+                                message_of_call: error
                             }
                             console.log(JSON.stringify(errorR));
                             res.status(400).send(errorR);
@@ -130,7 +130,7 @@ app.post('/', (req, res) => {
                     //Call to sign function fails.
                     const errorR = {
                         error: 'Error call to sign funcion: ',
-                        message_of_call: error?.response?.data
+                        message_of_call: error
                     }
                     console.log(JSON.stringify(errorR));
                     res.status(400).send(errorR);
