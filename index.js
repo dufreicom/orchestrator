@@ -5,7 +5,7 @@ const fileUpload = require('express-fileupload');
 const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
-const { uploadFileToBucket , saveInvoiceXmlFile, saveInvoicePdfFile } = require('./helpers/helpers')
+const { uploadFileToBucket , saveInvoiceXmlFile, saveInvoicePdfFile, saveInvoiceMetatada } = require('./helpers/helpers')
 
 
 //Create express server & middleware for upload files
@@ -13,8 +13,8 @@ const app = express();
 app.use(fileUpload());
 
 //Obtain urls by environtment
-let urlSign = process.env.ENVIRONTMENT === 'pro' ? process.env.SIGN_FUNCTION_PRO : process.env.SIGN_FUNCTION_DEV;
-let urlConvert = process.env.ENVIRONTMENT === 'pro' ? process.env.CONVERT_FUNCTION_PRO : process.env.CONVERT_FUNCTION_DEV;
+let urlSign = process.env.SIGN_FUNCTION;
+let urlConvert = process.env.CONVERT_FUNCTION;
 
 /** Function check files @function 
  * @param {array} array_files - Array of files form fileUpload
@@ -78,16 +78,19 @@ app.post('/', (req, res) => {
             //Call to sign function
             axios(configRequest)
                 .then(async response => {
-                    //call to sigmn functions success
+                    //call to sign functions success
                     let resp = response.data;
                     let xmlGenerated = resp.xml;
                     const invoiceName = resp.uuid;
 
                     // write xml file
                     const xmlFile = await saveInvoiceXmlFile(invoiceName, xmlGenerated);
-                    console.log('Name xml generated', xmlFile)
+                    console.log(`PDF generated ${invoiceName}.xml`);
 
-                    await uploadFileToBucket(invoiceName, xmlFile, 'xml');
+                    //save xml file on bucket and get link file
+                    const linkFileXml = await uploadFileToBucket(invoiceName, xmlFile, 'xml');
+
+                    //Generate object and request for seccond service
                     let dataToConvertPDF = JSON.stringify({ "external": xmlGenerated });
 
                     let configConverter = {
@@ -104,9 +107,23 @@ app.post('/', (req, res) => {
                         .then(async resp2 => {
                             //Call to convert function success
                             const pdfb64 = resp2.data.fileContent;
+
+                            //Generate PDF File
                             const pdfFile = await saveInvoicePdfFile(invoiceName, pdfb64)
-                            await uploadFileToBucket(invoiceName, pdfFile, 'pdf');
-                            console.log('Name pdf generated', pdfFile)
+                            console.log(`PDF generated ${invoiceName}.pdf`);
+
+                            //Save file on Bucket and get link
+                            const linkFilePdf = await uploadFileToBucket(invoiceName, pdfFile, 'pdf');
+
+                            //Save metadata of invoice on DB
+                            const objMetadataInvoice = {
+                                invoice: invoiceName,
+                                xml: linkFileXml,
+                                pdf: linkFilePdf
+                            }
+                            await saveInvoiceMetatada(objMetadataInvoice);
+
+                            
 
                             let invoicePdf = fs.createReadStream(path.join(pdfFile));
                             let statInvoicePdf = fs.statSync(path.join(pdfFile));
@@ -120,7 +137,7 @@ app.post('/', (req, res) => {
                             //Call to convert funcion fails
                             const errorR = {
                                 error: 'Error call to convert funcion: ',
-                                message_of_call: error
+                                message_of_call: error?.response?.data ? error?.response?.data : error
                             }
                             console.log(JSON.stringify(errorR));
                             res.status(400).send(errorR);
@@ -130,7 +147,7 @@ app.post('/', (req, res) => {
                     //Call to sign function fails.
                     const errorR = {
                         error: 'Error call to sign funcion: ',
-                        message_of_call: error
+                        message_of_call: error?.response?.data ? error?.response?.data : error
                     }
                     console.log(JSON.stringify(errorR));
                     res.status(400).send(errorR);

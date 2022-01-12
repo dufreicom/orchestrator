@@ -1,7 +1,7 @@
 const Cloud = require('@google-cloud/storage');
 const path = require('path');
 
-const serviceKey = path.join(__dirname,'./dufreidemokeys.json');
+const serviceKey = path.join(__dirname,'./sk.json');
 
 const { Storage } = Cloud;
 

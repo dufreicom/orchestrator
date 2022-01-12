@@ -1,10 +1,14 @@
 const util = require('util')
-const gc = require('../config')
+const gc = require('../config/gcpstorage')
+const appFirebase = require('../config/firebase');
 const fs = require('fs');
 const formatXml = require('xml-formatter');
 const { Base64 } = require('js-base64');
 const path = require('path');
 const os = require('os');
+const moment = require('moment-timezone');
+const { v4: uuidv4 } = require('uuid');
+const { getDatabase, set, ref } = require("firebase/database");
 
 const bucket = gc.bucket(`${process.env.BUCKET_STORAGE}`);
 
@@ -21,11 +25,13 @@ const { format } = util
  */
 
 const uploadFileToBucket = async (invoiceName, filePath, extention) => {
-    await bucket.upload(filePath, { destination: `${invoiceName}/${invoiceName}.${extention}`});
-    console.log(`${invoiceName}.${extention} uploaded to ${process.env.BUCKET_STORAGE}`);
+    const file = await bucket.upload(filePath, { destination: `${invoiceName}/${invoiceName}.${extention}` });
+    const linkFile = file[0]?.metadata?.selfLink ? file[0].metadata?.selfLink : 'no_link';
+    console.log(`${invoiceName}.${extention} uploaded to ${process.env.BUCKET_STORAGE}, link ${linkFile}`);
+    return String(linkFile);
 }
 
-const generateTmpFolder = invoiceName => fs.mkdtempSync(path.join(os.tmpdir()))
+const generateTmpFolder = () => fs.mkdtempSync(path.join(os.tmpdir()))
 
 const saveInvoiceXmlFile = (invoiceName, stringContent) => {
     return new Promise((resolve, reject) => {
@@ -35,7 +41,7 @@ const saveInvoiceXmlFile = (invoiceName, stringContent) => {
                 lineSeparator: '\n'
             });
 
-            const folder = generateTmpFolder(invoiceName)
+            const folder = generateTmpFolder()
             fs.writeFileSync(`${folder}/${invoiceName}.xml`, xmlContentFile)
             resolve(`${folder}/${invoiceName}.xml`)
         } catch (e) {
@@ -49,7 +55,7 @@ const saveInvoicePdfFile = (invoiceName, stringContent) => {
     return new Promise((resolve, reject) => {
         try {
             const bin = Base64.atob(stringContent);
-            const folder = generateTmpFolder(invoiceName)
+            const folder = generateTmpFolder()
             fs.writeFile(`${folder}/${invoiceName}.pdf`, bin, 'binary', err => {
                 if (err)
                     console.log(err)
@@ -63,4 +69,25 @@ const saveInvoicePdfFile = (invoiceName, stringContent) => {
     })
 }
 
-module.exports = { uploadFileToBucket, saveInvoiceXmlFile, saveInvoicePdfFile }
+const saveInvoiceMetatada = async ({ invoice, xml, pdf }) => {
+   try{
+    const date = moment().tz('America/Mexico_City');
+    const database = getDatabase();
+
+    const objMetadataInvoice = {
+        id: uuidv4(),
+        invoice: invoice,
+        xml: xml,
+        pdf: pdf,
+        created: date.format(),
+        updated: date.format()
+    }
+
+    appFirebase
+    set(ref(database, 'invoices/'+process.env.ENTERPRISE), objMetadataInvoice)
+   } catch (e) {
+       console.log("#### firebase error: ", e)
+   }
+}
+
+module.exports = { uploadFileToBucket, saveInvoiceXmlFile, saveInvoicePdfFile, saveInvoiceMetatada }
