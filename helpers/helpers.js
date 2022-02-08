@@ -33,16 +33,16 @@ const uploadFileToBucket = async (invoiceName, filePath, extention) => {
 
 const generateTmpFolder = () => fs.mkdtempSync(path.join(os.tmpdir()))
 
+const clearXml = (stringContent) => formatXml(stringContent, {
+    collapseContent: true,
+    lineSeparator: '\n'
+});
+
 const saveInvoiceXmlFile = (invoiceName, stringContent) => {
     return new Promise((resolve, reject) => {
         try {
-            const xmlContentFile = formatXml(stringContent, {
-                collapseContent: true,
-                lineSeparator: '\n'
-            });
-
             const folder = generateTmpFolder()
-            fs.writeFileSync(`${folder}/${invoiceName}.xml`, xmlContentFile)
+            fs.writeFileSync(`${folder}/${invoiceName}.xml`, stringContent)
             resolve(`${folder}/${invoiceName}.xml`)
         } catch (e) {
             console.log(`Error generating xml file: ${invoiceName}.xml : ${e}`)
@@ -90,4 +90,4 @@ const saveInvoiceMetatada = async ({ invoice, xml, pdf }) => {
    }
 }
 
-module.exports = { uploadFileToBucket, saveInvoiceXmlFile, saveInvoicePdfFile, saveInvoiceMetatada }
+module.exports = { uploadFileToBucket, saveInvoiceXmlFile, saveInvoicePdfFile, saveInvoiceMetatada, clearXml }
