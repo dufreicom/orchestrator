@@ -5,7 +5,7 @@ const fileUpload = require('express-fileupload');
 const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
-const { uploadFileToBucket , saveInvoiceXmlFile, saveInvoicePdfFile, saveInvoiceMetatada } = require('./helpers/helpers')
+const { uploadFileToBucket , saveInvoiceXmlFile, saveInvoicePdfFile, saveInvoiceMetatada, clearXml} = require('./helpers/helpers')
 
 
 //Create express server & middleware for upload files
@@ -83,9 +83,12 @@ app.post('/', (req, res) => {
                     let xmlGenerated = resp.xml;
                     const invoiceName = resp.uuid;
 
+                    //clear xml
+                    const xmlCleaned = clearXml(xmlGenerated);
+
                     // write xml file
-                    const xmlFile = await saveInvoiceXmlFile(invoiceName, xmlGenerated);
-                    console.log(`PDF generated ${invoiceName}.xml`);
+                    const xmlFile = await saveInvoiceXmlFile(invoiceName, xmlCleaned);
+                    console.log(`XML generated ${invoiceName}.xml`);
 
                     //save xml file on bucket and get link file
                     const linkFileXml = await uploadFileToBucket(invoiceName, xmlFile, 'xml');
@@ -125,12 +128,21 @@ app.post('/', (req, res) => {
 
                             
 
-                            let invoicePdf = fs.createReadStream(path.join(pdfFile));
-                            let statInvoicePdf = fs.statSync(path.join(pdfFile));
-                            res.setHeader('Content-Length', statInvoicePdf.size);
-                            res.setHeader('Content-Type', 'application/pdf');
-                            res.setHeader('Content-Disposition', `attachment; filename=${invoiceName}.pdf`);
-                            invoicePdf.pipe(res);
+                            // let invoicePdf = fs.createReadStream(path.join(pdfFile));
+                            // let statInvoicePdf = fs.statSync(path.join(pdfFile));
+                            // res.setHeader('Content-Length', statInvoicePdf.size);
+                            // res.setHeader('Content-Type', 'application/pdf');
+                            // res.setHeader('Content-Disposition', `attachment; filename=${invoiceName}.pdf`);
+                            // invoicePdf.pipe(res);
+
+                            //Object whit response
+                            const thisResponse = {
+                                pdf: pdfb64,
+                                xml: xmlCleaned
+                            }
+
+                            //Send response JSON with XML and PDF
+                            res.status(200). send(thisResponse);
 
                         })
                         .catch(function (error) {
