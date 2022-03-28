@@ -5,11 +5,13 @@ const fileUpload = require('express-fileupload');
 const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
+const cors = require('cors');
 const { uploadFileToBucket, saveInvoiceXmlFile, saveInvoicePdfFile, saveInvoiceMetatada, clearXml } = require('./helpers/helpers')
 
 
 //Create express server & middleware for upload files
 const app = express();
+app.use(cors());
 app.use(fileUpload());
 
 //Obtain urls by environtment
